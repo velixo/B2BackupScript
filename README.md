@@ -14,4 +14,12 @@ There are two files which need to be provided: `bucket_name.txt` and `tracked_fi
 
 - Add automatic B2 authentication.
 - Handle error codes if B2 interactions fail.
-- Add option to make script not to keep a log.
+- Add print of size tally of upload
+- Fix bug where uploading... statement doesn't print until done
+- Options:
+  - Add option to make script not to keep a log.
+  - Add option to upload files in alphabetical order (default)
+  - Add option to upload files in order of size (ascending/descending)
+- Add taskbar popup when finished
+- Add taskbar progress widget
+- Make script handle large files

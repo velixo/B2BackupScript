@@ -16,6 +16,7 @@
 # else:
 #   show taskbar popup that upload occurred
 
+import collections
 import os
 import hashlib
 import json
@@ -27,7 +28,7 @@ bucketFilename = "bucket_name.txt"
 trackedPathsFilename = "tracked_files.txt"
 logFilename = "log.txt"
 logFile = ''
-localFileSha1Dic = dict()  # [filename][sha]
+localFileSha1Dic = collections.OrderedDict()  # [filename][sha]
 b2FileSha1Dic = dict()
 # The size of the chunks that the files are broken into when
 # their checksum in calcSha1
@@ -105,6 +106,9 @@ def getLocallyTrackedFiles():
 			for sf in subFiles:
 				files.append(os.path.join(root, sf).replace("\\", "/"))
 
+	# populate localFileSha1Dic with filenames as keys and the SHA1-hash of the
+	# file content as values
+	files.sort()
 	for f in files:
 		localFileSha1Dic[f] = calcSha1(f)
 
@@ -138,8 +142,9 @@ def hideFile(filename):
 		return True
 
 
-def uploadFile(f):
-	log("Uploading file \"" + f + "\"...", end='')
+def uploadFile(f, currUploadIndex, totalToUpload):
+	log("Uploading file " + str(currUploadIndex) + "/" + str(totalToUpload)
+					+ ": \"" + f + "\"... ", end='')
 	cmd = "b2 upload_file \"" + bucketName + "\" \"" + f + "\" \"" + f + "\""
 	outs, errs = sysCmd(cmd)
 	if errs != '':
@@ -149,7 +154,7 @@ def uploadFile(f):
 		log(errs)
 		return False
 	else:
-		log(" Done.")
+		log("Done.")
 		return True
 
 
@@ -158,14 +163,18 @@ def main():
 	logFile = open(logFilename, 'a')
 	loadCredentials()
 	authB2()
-	getLocallyTrackedFiles()
+	log("Getting file data from B2... ", end='')
 	getB2Data()
+	log("Done.")
+	log("Get all tracked files and their hashes... ", end='')
+	getLocallyTrackedFiles()
+	log("Done.")
 	localFileNames = localFileSha1Dic.keys()
 	b2FileNames = b2FileSha1Dic.keys()
 
-	log("Files under tracking:")
-	for lf in localFileNames:
-		log("    " + lf)
+# 	log("Files under tracking:")
+# 	for lf in localFileNames:
+# 		log("    " + lf)
 
 	# create list of new local files
 	newLocalFiles = list()
@@ -193,6 +202,7 @@ def main():
 					+ " new files to upload, " + str(len(locallyDeletedFiles))
 					+ " deleted files to hide.")
 
+	totalFilesToUpload = filesNeedingUpdate + len(newLocalFiles)
 	errorOccured = False
 	filesDeleted = 0
 	filesUploaded = 0
@@ -208,7 +218,7 @@ def main():
 
 	# upload new local files to B2
 	for lf in newLocalFiles:
-		success = uploadFile(lf)
+		success = uploadFile(lf, filesUploaded + 1, totalFilesToUpload)
 		if success:
 			filesUploaded += 1
 		else:
@@ -217,7 +227,7 @@ def main():
 	# compare checksums, upload to b2 if local version has different checksum
 	for lf in localFileNames:
 		if localFileSha1Dic[lf] != b2FileSha1Dic[lf]:
-			success = uploadFile(lf)
+			success = uploadFile(lf, filesUploaded + 1, totalFilesToUpload)
 			if success:
 				filesUploaded += 1
 			else:
