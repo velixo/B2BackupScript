@@ -19,11 +19,14 @@
 import os
 import hashlib
 import json
+import datetime
 from subprocess import Popen, PIPE
 
 bucketName = ""
-bucketSource = "bucket_name.txt"
+bucketFilename = "bucket_name.txt"
 trackedPathsFilename = "tracked_files.txt"
+logFilename = "log.txt"
+logFile = ''
 localFileSha1Dic = dict()  # [filename][sha]
 b2FileSha1Dic = dict()
 # The size of the chunks that the files are broken into when
@@ -31,9 +34,27 @@ b2FileSha1Dic = dict()
 BUF_SIZE = 65536
 
 
+def log(s, end=None):
+	if end is None:
+		print(s)
+	else:
+		print(s, end=end)
+
+	s = s.strip()
+	dt = datetime.datetime.now()
+	YY = str(dt.year)
+	MM = str(dt.month) if dt.month >= 10 else '0' + str(dt.month)
+	DD = str(dt.day) if dt.day >= 10 else '0' + str(dt.day)
+	hh = str(dt.hour) if dt.hour >= 10 else '0' + str(dt.hour)
+	mm = str(dt.minute) if dt.minute >= 10 else '0' + str(dt.minute)
+	ss = str(dt.second) if dt.second >= 10 else '0' + str(dt.second)
+	timestamp = YY + '-' + MM + '-' + DD + ' ' + hh + ':' + mm + ':' + ss
+	logFile.write(timestamp + ' ' + s + '\n')
+
+
 def loadCredentials():
 	global bucketName
-	bucketName = open(bucketSource, 'r').read().strip()
+	bucketName = open(bucketFilename, 'r').read().strip()
 
 
 def sysCmd(cmd=None):
@@ -76,7 +97,7 @@ def getLocallyTrackedFiles():
 		elif os.path.isdir(p):
 			folders.append(p)
 		else:
-			print("Error: '" + p + "' is not a valid file or directory.")
+			log("Error: '" + p + "' is not a valid file or directory.")
 
 	# recursively get all files in the folders in trackedFiles
 	for folder in folders:
@@ -103,56 +124,74 @@ def calcSha1(file):
 
 
 def hideFile(filename):
-	print("Hiding file \"" + filename + "\"...", end='')
+	log("Hiding file \"" + filename + "\"...", end='')
 	cmd = "b2 hide_file \"" + bucketName + "\" \"" + filename + "\""
 	outs, errs = sysCmd(cmd)
 	if errs != '':
 		# TODO handle error correctly
-		print("\nError occured while hiding locally deleted file in B2:")
-		print("\"" + cmd + "\"")
-		print(errs)
+		log("\nError occured while hiding locally deleted file in B2:")
+		log("\"" + cmd + "\"")
+		log(errs)
 		return False
 	else:
-		print(" Done.")
+		log(" Done.")
 		return True
 
 
 def uploadFile(f):
-	print("Uploading file \"" + f + "\"...", end='')
+	log("Uploading file \"" + f + "\"...", end='')
 	cmd = "b2 upload_file \"" + bucketName + "\" \"" + f + "\" \"" + f + "\""
 	outs, errs = sysCmd(cmd)
 	if errs != '':
 		# TODO handle error correctly
-		print("\nError occured while uploading file to B2:")
-		print("\"" + cmd + "\"")
-		print(errs)
+		log("\nError occured while uploading file to B2:")
+		log("\"" + cmd + "\"")
+		log(errs)
 		return False
 	else:
-		print(" Done.")
+		log(" Done.")
 		return True
 
 
 def main():
+	global logFile
+	logFile = open(logFilename, 'a')
 	loadCredentials()
 	authB2()
 	getLocallyTrackedFiles()
 	getB2Data()
 	localFileNames = localFileSha1Dic.keys()
 	b2FileNames = b2FileSha1Dic.keys()
-	locallyDeletedFiles = list()
-	newLocalFiles = list()
 
-	print("Files under tracking:")
+	log("Files under tracking:")
 	for lf in localFileNames:
-		print("    " + lf)
+		log("    " + lf)
 
+	# create list of new local files
+	newLocalFiles = list()
 	for lf in localFileNames:
 		if lf not in b2FileNames:
 			newLocalFiles.append(lf)
 
+	# create list of deleted local files
+	locallyDeletedFiles = list()
 	for bf in b2FileNames:
 		if bf not in localFileNames:
 			locallyDeletedFiles.append(bf)
+
+	# clear localFileSha1Dic from newly uploaded files
+	for lf in newLocalFiles:
+		del localFileSha1Dic[lf]
+
+	# count no of files that need updating
+	filesNeedingUpdate = 0
+	for lf in localFileNames:
+		if localFileSha1Dic[lf] != b2FileSha1Dic[lf]:
+			filesNeedingUpdate += 1
+
+	log(str(filesNeedingUpdate) + " changed files, " + str(len(newLocalFiles))
+					+ " new files to upload, " + str(len(locallyDeletedFiles))
+					+ " deleted files to hide.")
 
 	errorOccured = False
 	filesDeleted = 0
@@ -175,10 +214,6 @@ def main():
 		else:
 			errorOccured = True
 
-	# clear localFileSha1Dic from newly uploaded files
-	for lf in newLocalFiles:
-		del localFileSha1Dic[lf]
-
 	# compare checksums, upload to b2 if local version has different checksum
 	for lf in localFileNames:
 		if localFileSha1Dic[lf] != b2FileSha1Dic[lf]:
@@ -191,9 +226,11 @@ def main():
 			filesUnchanged += 1
 
 	if not errorOccured:
-		print("Backup successful. " + str(filesUploaded) + " files uploaded, "
-								+ str(filesDeleted) + " files deleted, "
-								+ str(filesUnchanged) + " files unchanged.")
+		log("Backup successful. " + str(filesUploaded) + " files uploaded, "
+						+ str(filesDeleted) + " files deleted, "
+						+ str(filesUnchanged) + " files unchanged.")
+
+	logFile.close()
 
 if __name__ == "__main__":
 	main()
