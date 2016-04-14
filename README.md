@@ -14,5 +14,4 @@ There are two files which need to be provided: `bucket_name.txt` and `tracked_fi
 
 - Add automatic B2 authentication.
 - Handle error codes if B2 interactions fail.
-- Make script keep a log file.
-  - Add option to make script not to keep a log.
+- Add option to make script not to keep a log.
