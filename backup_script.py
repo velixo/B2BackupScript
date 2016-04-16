@@ -24,9 +24,10 @@ import datetime
 from subprocess import Popen, PIPE
 
 bucketName = ""
-bucketFilename = "bucket_name.txt"
-trackedPathsFilename = "tracked_files.txt"
-logFilename = "log.txt"
+scriptRoot = "C:/B2BackupScript/"
+bucketFilename = scriptRoot + "bucket_name.txt"
+trackedPathsFilename = scriptRoot + "tracked_files.txt"
+logFilename = scriptRoot + "log.txt"
 logFile = ''
 localFileSha1Dic = collections.OrderedDict()  # [filename][sha]
 b2FileSha1Dic = dict()
