@@ -24,3 +24,4 @@ There are two files which need to be provided: `bucket_name.txt` and `tracked_fi
 - Add taskbar popup when finished
 - Add taskbar progress widget
 - Make script handle large files
+- Add bucket name prompt for user friendliness
