@@ -20,6 +20,7 @@ There are two files which need to be provided: `bucket_name.txt` and `tracked_fi
   - Add option to make script not to keep a log.
   - Add option to upload files in alphabetical order (default)
   - Add option to upload files in order of size (ascending/descending)
+  - Add option to skip certain folders this backup cycle
 - Add taskbar popup when finished
 - Add taskbar progress widget
 - Make script handle large files
